@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Balance & History</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>Balance and Transaction History</h2>
+
+    <!-- Balance Display -->
+    <h3>Current Balance: ₹<span id="balance"></span></h3>
+
+    <hr />
+    <h3>Transaction History:</h3>
+    <table id="historyTable">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Method</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Transaction History will be dynamically populated here -->
+      </tbody>
+    </table>
+
+    <br />
+    <button onclick="goBack()">Back to Dashboard</button>
+  </div>
+
+  <script>
+    const number = localStorage.getItem("loggedInUser");
+    if (!number) {
+      window.location.href = "index.html";
+    }
+
+    const userKey = "user_" + number;
+    const user = JSON.parse(localStorage.getItem(userKey));
+
+    // Display the current balance
+    document.getElementById("balance").innerText = user.balance;
+
+    // Populate the transaction history
+    const historyTable = document.getElementById("historyTable").getElementsByTagName("tbody")[0];
+
+    user.history.forEach(transaction => {
+      const row = historyTable.insertRow();
+      row.insertCell(0).innerText = transaction.type;
+      row.insertCell(1).innerText = transaction.amount;
+      row.insertCell(2).innerText = transaction.method || "-";
+      row.insertCell(3).innerText = transaction.date;
+    });
+
+    function goBack() {
+      window.location.href = "dashboard.html";  // Go back to Dashboard
+    }
+  </script>
+</body>
+</html>

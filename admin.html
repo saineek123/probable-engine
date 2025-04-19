@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f2f2f2; }
+    h2 { text-align: center; }
+    .user-box {
+      background: white; padding: 15px; margin: 10px 0;
+      border: 1px solid #ccc; border-radius: 5px;
+    }
+    button {
+      background: red; color: white; border: none;
+      padding: 10px; float: right; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Admin Dashboard</h2>
+  <div id="userList"></div>
+  <h3>Recharge Requests</h3>
+<div id="rechargeRequests"></div>
+<h3>Withdraw Requests</h3>
+<div id="withdrawRequests"></div>
+<h3>Support Tickets</h3>
+<div id="supportList"></div>
+
+  <button onclick="logout()">Logout</button>
+
+  <script>
+    // अगर Admin Login नहीं है तो वापस login page पर भेज दो
+    if (localStorage.getItem("adminLoggedIn") !== "true") {
+      window.location.href = "admin-login.html";
+    }
+
+    function logout() {
+      localStorage.removeItem("adminLoggedIn");
+      window.location.href = "admin-login.html";
+    }
+
+   
+    function showUsers() {
+  const div = document.getElementById("usersList");
+  div.innerHTML = "";
+  const users = Object.keys(localStorage).filter(k => k.startsWith("user_"));
+  users.forEach(k => {
+    const u = JSON.parse(localStorage.getItem(k));
+    const bal = localStorage.getItem("balance_" + u.phone) || "0";
+    const status = u.isBlocked ? "Blocked" : "Active";
+    const btnText = u.isBlocked ? "Unblock" : "Block";
+
+    div.innerHTML += `
+      <div class="user-box">
+        <p><strong>${u.phone}</strong></p>
+        <p>Balance: ₹${bal}</p>
+        <p>Status: ${status}</p>
+        <button onclick="toggleBlock('${u.phone}')">${btnText}</button>
+      </div>
+    `;
+  });
+}
+
+
+    window.onload = showUsers;
+    function showRechargeRequests() {
+  const requestList = JSON.parse(localStorage.getItem("rechargeRequests") || "[]");
+  const div = document.getElementById("rechargeRequests");
+
+  if (requestList.length === 0) {
+    div.innerHTML = "<p>No requests yet.</p>";
+    return;
+  }
+
+  let html = "";
+  requestList.forEach((req, index) => {
+    html += `<div class="user-box">
+      <p><strong>Phone:</strong> ${req.phone}</p>
+      <p><strong>Amount:</strong> ₹${req.amount}</p>
+      <p><strong>Date:</strong> ${req.date}</p>
+      <button onclick="approveRecharge(${index})">Approve</button>
+    </div>`;
+  });
+  showSupportTickets();
+
+
+  div.innerHTML = html;
+}
+
+function approveRecharge(index) {
+  let requestList = JSON.parse(localStorage.getItem("rechargeRequests") || "[]");
+  const req = requestList[index];
+
+  // Balance update
+  let balance = parseFloat(localStorage.getItem("balance_" + req.phone) || "0");
+  balance += parseFloat(req.amount);
+  localStorage.setItem("balance_" + req.phone, balance.toString());
+
+  // Recharge History update
+  const history = JSON.parse(localStorage.getItem("history_" + req.phone) || "[]");
+  history.push({ amount: req.amount, date: req.date });
+  localStorage.setItem("history_" + req.phone, JSON.stringify(history));
+
+  // Remove request from list
+  requestList.splice(index, 1);
+  localStorage.setItem("rechargeRequests", JSON.stringify(requestList));
+
+  alert("Recharge Approved!");
+  showRechargeRequests();
+  showUsers(); // To update balance
+}
+function showWithdrawRequests() {
+  const requestList = JSON.parse(localStorage.getItem("withdrawRequests") || "[]");
+  const div = document.getElementById("withdrawRequests");
+
+  if (requestList.length === 0) {
+    div.innerHTML = "<p>No withdraw requests.</p>";
+    return;
+  }
+
+  let html = "";
+  requestList.forEach((req, index) => {
+    html += `<div class="user-box">
+      <p><strong>Phone:</strong> ${req.phone}</p>
+      <p><strong>Amount:</strong> ₹${req.amount}</p>
+      <p><strong>Date:</strong> ${req.date}</p>
+      <button onclick="approveWithdraw(${index})">Approve</button>
+    </div>`;
+  });
+
+  div.innerHTML = html;
+}
+function approveWithdraw(index) {
+  let requestList = JSON.parse(localStorage.getItem("withdrawRequests") || "[]");
+  const req = requestList[index];
+
+  let balance = parseFloat(localStorage.getItem("balance_" + req.phone) || "0");
+
+  if (balance < req.amount) {
+    alert("User has insufficient balance.");
+    return;
+  }
+
+  balance -= req.amount;
+  localStorage.setItem("balance_" + req.phone, balance.toString());
+
+  // Withdraw history भी बनानी हो तो future में add कर सकते हैं
+
+  requestList.splice(index, 1);
+  localStorage.setItem("withdrawRequests", JSON.stringify(requestList));
+
+  alert("Withdraw Approved!");
+  showWithdrawRequests();
+  showUsers(); // Update balance
+}
+function showSupportTickets() {
+  const list = JSON.parse(localStorage.getItem("supportTickets") || "[]");
+  const div = document.getElementById("supportList");
+
+  if (list.length === 0) {
+    div.innerHTML = "<p>No tickets found.</p>";
+    return;
+  }
+
+  let html = "";
+  list.forEach((t, i) => {
+    if (t.resolved) return;
+
+    html += `<div class="user-box">
+      <p><strong>${t.phone}</strong></p>
+      <p>${t.msg}</p>
+      <p><small>${t.date}</small></p>
+      <button onclick="resolveTicket(${i})">Mark Resolved</button>
+    </div>`;
+  });
+
+  div.innerHTML = html;
+}
+function resolveTicket(index) {
+  const list = JSON.parse(localStorage.getItem("supportTickets") || "[]");
+  list[index].resolved = true;
+  localStorage.setItem("supportTickets", JSON.stringify(list));
+  showSupportTickets();
+}
+
+  </script>
+
+</body>
+</html>

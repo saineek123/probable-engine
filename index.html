@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Recharge App</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+    }
+    nav {
+      display: flex;
+      justify-content: space-around;
+      background-color: #4CAF50;
+      padding: 10px 0;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 10px;
+    }
+    nav a:hover {
+      background-color: #45a049;
+      border-radius: 5px;
+    }
+    .content {
+      padding: 20px;
+      text-align: center;
+    }
+    input {
+      padding: 10px;
+      margin: 10px;
+      width: 200px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="#" onclick="showPage('home')">Home</a>
+    <a href="#" onclick="showPage('recharge')">Recharge</a>
+    <a href="#" onclick="showPage('logout')">Logout</a>
+    <a href="#" onclick="showPage('withdraw')">Withdraw</a>
+<a href="#" onclick="showPage('history')">history</a>    
+  </nav>
+
+  <div class="content" id="mainContent">
+    <h2>Login / Register</h2>
+    <input type="text" id="phone" placeholder="Enter Phone Number"><br>
+    <input type="password" id="password" placeholder="Enter Password"><br>
+    <input type="text" id="referCode" placeholder="Referral Code (optional)"><br>
+    <button onclick="register()">Register</button>
+    <button onclick="login()">Login</button>
+</div>
+<div id="support" style="display:none;">
+    <h2>Support Ticket</h2>
+    <textarea id="supportMsg" placeholder="Enter your issue..." rows="4" style="width:100%;"></textarea>
+    <br>
+    <button onclick="submitSupport()">Submit</button>
+    <button onclick="showPage('home')">Back</button>
+    <button onclick="showPage('support')">Support</button>
+
+  </div>
+  
+  <script>
+    const contentDiv = document.getElementById("mainContent");
+
+    function doWithdraw() {
+  const amount = parseFloat(document.getElementById("withdrawAmount").value);
+  if (!amount || amount <= 0) return alert("Enter valid amount");
+
+  const phone = localStorage.getItem("loggedInUser");
+  const balance = parseFloat(localStorage.getItem("balance_" + phone) || "0");
+
+  if (balance < amount) return alert("Insufficient balance");
+
+  // Withdraw Request store करना
+  const withdrawList = JSON.parse(localStorage.getItem("withdrawRequests") || "[]");
+  withdrawList.push({ phone, amount, date: new Date().toLocaleString() });
+  localStorage.setItem("withdrawRequests", JSON.stringify(withdrawList));
+
+  alert("Withdraw request sent. Wait for admin approval.");
+  showPage('home');
+}
+
+
+function register() {
+  const phone = document.getElementById("regPhone").value;
+  const pass = document.getElementById("regPass").value;
+  const referCode = document.getElementById("referCode").value.trim();
+
+  if (!phone || !pass) return alert("Fill all fields");
+
+  const userKey = "user_" + phone;
+  if (localStorage.getItem(userKey)) return alert("User already exists");
+
+  // Refer Code से Bonus (₹20)
+  let balance = 0;
+  if (referCode) {
+    const referredUser = Object.keys(localStorage).find(k => {
+      if (k.startsWith("user_")) {
+        const u = JSON.parse(localStorage.getItem(k));
+        return u.myCode === referCode;
+      }
+      return false;
+    });
+
+    if (referredUser) {
+      balance = 20;
+
+      // Referred user को भी ₹20 देना
+      const refPhone = JSON.parse(localStorage.getItem(referredUser)).phone;
+      let refBal = parseFloat(localStorage.getItem("balance_" + refPhone) || "0");
+      refBal += 20;
+      localStorage.setItem("balance_" + refPhone, refBal.toString());
+    }
+  }
+
+  // My Refer Code generate (e.g. REF123456)
+  const myCode = "REF" + Math.floor(100000 + Math.random() * 900000);
+
+  const userData = { phone, pass, referCode, myCode };
+  localStorage.setItem(userKey, JSON.stringify(userData));
+  localStorage.setItem("balance_" + phone, balance.toString());
+  alert("Registered Successfully!");
+  showPage('login');
+}
+
+
+    function login() {
+      const phone = document.getElementById("phone").value;
+      const pass = document.getElementById("password").value;
+      const data = localStorage.getItem("user_" + phone);
+      if (!data) return alert("User not found");
+      const user = JSON.parse(data);
+      if (user.pass !== pass) return alert("Wrong password");
+      localStorage.setItem("loggedInUser", phone);
+
+      // अगर balance नहीं है तो 0 से शुरू करें
+      if (!localStorage.getItem("balance_" + phone)) {
+        localStorage.setItem("balance_" + phone, "0");
+      }
+
+      showPage('home');
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      alert("Logged out");
+      location.reload();
+    }
+
+    function showPage(page) {
+      const phone = localStorage.getItem("loggedInUser");
+      if (!phone) {
+        contentDiv.innerHTML = `
+          <h2>Please Login First</h2>
+          <a href="#" onclick="location.reload()">Go to Login</a>
+        `;
+        return;
+      }
+
+      if (page === 'history') {
+  const phone = localStorage.getItem("loggedInUser");
+  const history = localStorage.getItem("history_" + phone);
+  const historyList = history ? JSON.parse(history) : [];
+  let historyContent = "<h2>Recharge History</h2>";
+
+  if (historyList.length > 0) {
+    historyList.forEach(item => {
+      historyContent += `<p>${item.date} - ₹${item.amount}</p>`;
+    });
+  } else {
+    historyContent += "<p>No history available.</p>";
+  }
+
+  contentDiv.innerHTML = historyContent;
+}
+
+
+      if (page === 'home') {
+        const balance = localStorage.getItem("balance_" + phone);
+        contentDiv.innerHTML = `
+          <h2>Welcome ${phone}</h2>
+          <p><strong>Your Balance:</strong> ₹${balance}</p>
+          <p>Use the menu to recharge your account.</p>
+        `;
+        <div id="history" style="display:none;">
+  <h2>Transaction History</h2>
+  <div id="historyList"></div>
+  <button onclick="showPage('home')">Back</button>
+</div>
+
+      }
+       
+  if (page === 'history') {
+        const history = JSON.parse(localStorage.getItem("history_" + phone) || "[]");
+        let historyContent = "<h2>Transaction History</h2>";
+        if (history.length > 0) {
+          history.forEach(item => {
+            historyContent += `<p>${item.date} - ₹${item.amount}</p>`;
+          });
+        } else {
+          historyContent += "<p>No transaction history available.</p>";
+        }
+        contentDiv.innerHTML = historyContent;
+      } 
+
+      if (page === 'withdraw') {
+  contentDiv.innerHTML = `
+    <h2>Withdraw</h2>
+    <p>Enter amount to withdraw:</p>
+    <input type="number" id="withdrawAmount" placeholder="Amount">
+    <br>
+    <button onclick="doWithdraw()">Withdraw</button>
+  `;
+}
+
+
+      if (page === 'recharge') {
+        contentDiv.innerHTML = `
+          <h2>Recharge</h2>
+          <p>Enter amount to recharge:</p>
+          <input type="number" id="amount" placeholder="Amount">
+          <br>
+          <button onclick="doRecharge()">Recharge</button>
+        `;
+      }
+
+      if (page === 'logout') {
+        logout();
+      }
+    }
+
+  
+    function doRecharge() {
+  const amount = parseFloat(document.getElementById("amount").value);
+  if (!amount || amount <= 0) return alert("Enter valid amount");
+
+  const phone = localStorage.getItem("loggedInUser");
+
+  // Recharge Request को Store करना
+  const requestList = JSON.parse(localStorage.getItem("rechargeRequests") || "[]");
+  requestList.push({ phone, amount, date: new Date().toLocaleString() });
+  localStorage.setItem("rechargeRequests", JSON.stringify(requestList));
+
+  alert("Recharge Request Sent! Wait for admin approval.");
+  showPage('home');
+}
+
+function showMyReferCode() {
+  const phone = localStorage.getItem("loggedInUser");
+  if (!phone) return;
+
+  const user = JSON.parse(localStorage.getItem("user_" + phone));
+  document.getElementById("myReferCode").innerText = user.myCode;
+}
+
+showMyReferCode();
+
+function showHistory() {
+  const phone = localStorage.getItem("loggedInUser");
+  const history = JSON.parse(localStorage.getItem("history_" + phone) || "[]");
+
+  if (history.length === 0) {
+    document.getElementById("historyList").innerHTML = "<p>No transaction history.</p>";
+    return;
+  }
+
+  let html = "";
+  history.reverse().forEach((item, index) => {
+    html += `<div class="user-box">
+      <p><strong>Type:</strong> ${item.type || 'Recharge'}</p>
+      <p><strong>Amount:</strong> ₹${item.amount}</p>
+      <p><strong>Date:</strong> ${item.date}</p>
+    </div>`;
+  });
+
+  document.getElementById("historyList").innerHTML = html;
+}
+
+function submitSupport() {
+  const msg = document.getElementById("supportMsg").value.trim();
+  if (!msg) return alert("Please enter your message");
+
+  const phone = localStorage.getItem("loggedInUser");
+  const all = JSON.parse(localStorage.getItem("supportTickets") || "[]");
+
+  all.push({ phone, msg, date: new Date().toLocaleString(), resolved: false });
+  localStorage.setItem("supportTickets", JSON.stringify(all));
+
+  alert("Support ticket submitted!");
+  document.getElementById("supportMsg").value = "";
+  showPage('home');
+}
+    
+  </script>
+
+</body>
+</html>
